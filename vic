@@ -301,7 +301,7 @@ local function buildgui()
 end
 
 local function claimhive()
-	local hive = workspace:FindFirstChild("Hive", true)
+	local hive = workspace:FindFirstChild("HivePlatforms", true)
 	if not hive then return end
 	local pos = (hive:IsA("Model") and hive.PrimaryPart and hive.PrimaryPart.Position)
 		or (hive:IsA("BasePart") and hive.Position)
@@ -317,17 +317,22 @@ local function killbee(bee)
 		or bee:FindFirstChildOfClass("BasePart")
 	if not part then return end
 
-	local t = tick()
+	-- stay on top of the bee so our bees can attack it
+	local killstart = tick()
+	local maxwait = 30 -- wait up to 30 seconds for it to die
+
 	repeat
-		if not bee or not bee.Parent then return end
+		if not bee or not bee.Parent then
+			-- bee is gone, it was killed
+			break
+		end
+		-- keep teleporting to bee so our bees stay in range
 		if (part.Position - hrp.Position).Magnitude > 5 then
-			moveto(part.Position + Vector3.new(0,2,0), 0.2)
+			moveto(part.Position + Vector3.new(0, 2, 0), 0.15)
 		end
 		task.wait(0.1)
-	until (part.Position - hrp.Position).Magnitude <= 5 or tick()-t >= 10
+	until not bee or not bee.Parent or tick() - killstart >= maxwait
 
-	local h = bee:FindFirstChildOfClass("Humanoid")
-	if h then h.Health = 0 else bee:Destroy() end
 	task.wait(hopdelay)
 end
 
@@ -441,3 +446,4 @@ end
 buildgui()
 running = true
 task.spawn(loop)
+
