@@ -16,10 +16,13 @@ local placeid = game.PlaceId
 
 local enabled = true
 local running = false
-local startTime = tick()
+if not _G.vbStartTime then _G.vbStartTime = tick() end
+local startTime = _G.vbStartTime
 local serversChecked = 0
-local totalHops = 0
-local totalKills = 0
+if not _G.vbTotalHops then _G.vbTotalHops = 0 end
+if not _G.vbTotalKills then _G.vbTotalKills = 0 end
+local totalHops = _G.vbTotalHops
+local totalKills = _G.vbTotalKills
 local serverQueue = {}
 local runtimeLbl = nil
 local serversLbl = nil
@@ -343,25 +346,24 @@ local function claimhive()
 	local hivePlatforms = workspace:FindFirstChild("HivePlatforms")
 	if not hivePlatforms then return end
 
+	-- make sure character is loaded
+	char = lp.Character or lp.CharacterAdded:Wait()
+	hrp = char:WaitForChild("HumanoidRootPart", 5)
+	if not hrp then return end
+
 	for _, plat in ipairs(hivePlatforms:GetChildren()) do
 		if plat:IsA("Model") then
 			local playerRef = plat:FindFirstChild("PlayerRef")
 			if playerRef and playerRef.Value == nil then
-				-- find any basepart to teleport to since PrimaryPart may be nil
-				local pos = nil
-				if plat.PrimaryPart then
-					pos = plat.PrimaryPart.Position
-				else
-					local p = plat:FindFirstChildOfClass("BasePart")
-					if p then pos = p.Position end
-				end
-				if not pos then continue end
+				local part = plat.PrimaryPart or plat:FindFirstChildOfClass("BasePart")
+				if not part then continue end
 
-				char = lp.Character
-				hrp = char and char:FindFirstChild("HumanoidRootPart")
-				if hrp then
-					hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-				end
+				local pos = part.Position
+
+				-- teleport twice to make sure it registers
+				hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+				task.wait(0.3)
+				hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
 				task.wait(1.5)
 				return
 			end
@@ -489,6 +491,7 @@ local function hopserver()
 	local pick = table.remove(serverQueue, 1)
 	serversChecked += 1
 	totalHops += 1
+	_G.vbTotalHops = totalHops
 	pcall(function()
 		TeleportService:TeleportToPlaceInstance(placeid, pick, lp)
 	end)
@@ -523,6 +526,7 @@ loop = function()
 			claimhive()
 			killbee(bee)
 			totalKills += 1
+			_G.vbTotalKills = totalKills
 			sendhook(bee.Name)
 			hopserver()
 		else
