@@ -1,0 +1,443 @@
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
+local lp = Players.LocalPlayer
+local char = lp.Character or lp.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local hum = char:WaitForChild("Humanoid")
+
+local webhook = "https://discord.com/api/webhooks/1470587693158367275/6UF1KAW9ERqxwFO6ztntB6gR-d8qaq3gwz3q1TPXKcZH0DIoiv6rkt7UOyMFgMs7B7sA"
+local tweenspd = 0.3
+local hopdelay = 0.2
+local scanrate = 0.5
+local maxscans = 3
+local placeid = game.PlaceId
+
+local enabled = true
+local running = false
+local startTime = tick()
+local serversChecked = 0
+local serverQueue = {}
+local runtimeLbl = nil
+local serversLbl = nil
+local loop
+
+local function ftime(s)
+	return string.format("%02d:%02d:%02d", math.floor(s/3600), math.floor(s%3600/60), math.floor(s%60))
+end
+
+local function moveto(pos, dur)
+	char = lp.Character
+	if not char then return end
+	hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	local s = hrp.CFrame
+	local g = CFrame.new(pos)
+	local t = tick()
+	repeat
+		hrp.CFrame = s:Lerp(g, math.min((tick()-t)/dur, 1))
+		task.wait()
+	until tick()-t >= dur
+	hrp.CFrame = g
+end
+
+local function makecorner(obj, rad)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, rad)
+	c.Parent = obj
+end
+
+local function makerow(parent, y, h)
+	local f = Instance.new("Frame")
+	f.Size = UDim2.new(1, 0, 0, h)
+	f.Position = UDim2.new(0, 0, 0, y)
+	f.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+	f.BorderSizePixel = 0
+	f.Parent = parent
+	makecorner(f, 8)
+	return f
+end
+
+local function makelbl(parent, txt, x, w, align)
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.new(0, w, 1, 0)
+	l.Position = UDim2.new(0, x, 0, 0)
+	l.BackgroundTransparency = 1
+	l.Text = txt
+	l.TextColor3 = Color3.fromRGB(255, 255, 255)
+	l.TextSize = 14
+	l.Font = Enum.Font.GothamSemibold
+	l.TextXAlignment = align or Enum.TextXAlignment.Left
+	l.Parent = parent
+	return l
+end
+
+local function setupdrag(handle, target)
+	local dragging, ds, sp
+	handle.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			ds = i.Position
+			sp = target.Position
+		end
+	end)
+	handle.InputChanged:Connect(function(i)
+		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			local d = i.Position - ds
+			target.Position = UDim2.new(sp.X.Scale, sp.X.Offset + d.X, sp.Y.Scale, sp.Y.Offset + d.Y)
+		end
+	end)
+	handle.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+end
+
+local function buildgui()
+	local existing = lp.PlayerGui:FindFirstChild("vbgui")
+	if existing then existing:Destroy() end
+
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "vbgui"
+	sg.ResetOnSpawn = false
+	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	sg.Parent = lp.PlayerGui
+
+	-- mini bee button
+	local mini = Instance.new("TextButton")
+	mini.Size = UDim2.new(0, 54, 0, 54)
+	mini.Position = UDim2.new(0.5, -27, 0.5, -27)
+	mini.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+	mini.BorderSizePixel = 0
+	mini.Text = "🐝"
+	mini.TextSize = 28
+	mini.Font = Enum.Font.GothamBold
+	mini.TextColor3 = Color3.fromRGB(255,255,255)
+	mini.Visible = false
+	mini.ZIndex = 10
+	mini.Parent = sg
+	makecorner(mini, 14)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(210, 45, 45)
+	stroke.Thickness = 2
+	stroke.Parent = mini
+
+	-- main frame
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(0, 340, 0, 280)
+	frame.Position = UDim2.new(0.5, -170, 0.5, -140)
+	frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+	frame.BorderSizePixel = 0
+	frame.ClipsDescendants = true
+	frame.Parent = sg
+	makecorner(frame, 14)
+
+	-- red gradient
+	local gframe = Instance.new("Frame")
+	gframe.Size = UDim2.new(1, 0, 0.45, 0)
+	gframe.Position = UDim2.new(0, 0, 0.55, 0)
+	gframe.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+	gframe.BackgroundTransparency = 0.55
+	gframe.BorderSizePixel = 0
+	gframe.ZIndex = 0
+	gframe.Parent = frame
+	local ug = Instance.new("UIGradient")
+	ug.Rotation = 90
+	ug.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(130,0,0))
+	})
+	ug.Parent = gframe
+
+	-- header
+	local header = Instance.new("Frame")
+	header.Size = UDim2.new(1, 0, 0, 62)
+	header.BackgroundTransparency = 1
+	header.Parent = frame
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, -50, 0, 28)
+	title.Position = UDim2.new(0, 15, 0, 10)
+	title.BackgroundTransparency = 1
+	title.Text = "← 🐝  Vicious Bee Script"
+	title.TextColor3 = Color3.fromRGB(255,255,255)
+	title.TextSize = 18
+	title.Font = Enum.Font.GothamBold
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = header
+
+	local sub = Instance.new("TextLabel")
+	sub.Size = UDim2.new(1, -20, 0, 18)
+	sub.Position = UDim2.new(0, 15, 0, 38)
+	sub.BackgroundTransparency = 1
+	sub.Text = "auto detects, kills, and hops for vicious bees"
+	sub.TextColor3 = Color3.fromRGB(140,140,140)
+	sub.TextSize = 11
+	sub.Font = Enum.Font.Gotham
+	sub.TextXAlignment = Enum.TextXAlignment.Left
+	sub.Parent = header
+
+	-- minimize btn
+	local minbtn = Instance.new("TextButton")
+	minbtn.Size = UDim2.new(0, 30, 0, 30)
+	minbtn.Position = UDim2.new(1, -42, 0, 12)
+	minbtn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+	minbtn.BorderSizePixel = 0
+	minbtn.Text = "—"
+	minbtn.TextColor3 = Color3.fromRGB(180,180,180)
+	minbtn.TextSize = 15
+	minbtn.Font = Enum.Font.GothamBold
+	minbtn.ZIndex = 5
+	minbtn.Parent = header
+	makecorner(minbtn, 8)
+
+	-- rows
+	local rc = Instance.new("Frame")
+	rc.Size = UDim2.new(1, -20, 0, 205)
+	rc.Position = UDim2.new(0, 10, 0, 67)
+	rc.BackgroundTransparency = 1
+	rc.Parent = frame
+
+	-- row 1: toggle
+	local r1 = makerow(rc, 0, 44)
+	makelbl(r1, "Script", 14, 160)
+
+	local swbg = Instance.new("Frame")
+	swbg.Size = UDim2.new(0, 50, 0, 26)
+	swbg.Position = UDim2.new(1, -64, 0.5, -13)
+	swbg.BackgroundColor3 = Color3.fromRGB(210, 45, 45)
+	swbg.BorderSizePixel = 0
+	swbg.Parent = r1
+	makecorner(swbg, 99)
+
+	local knob = Instance.new("Frame")
+	knob.Size = UDim2.new(0, 20, 0, 20)
+	knob.Position = UDim2.new(1, -23, 0.5, -10)
+	knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
+	knob.BorderSizePixel = 0
+	knob.Parent = swbg
+	makecorner(knob, 99)
+
+	local swbtn = Instance.new("TextButton")
+	swbtn.Size = UDim2.new(1,0,1,0)
+	swbtn.BackgroundTransparency = 1
+	swbtn.Text = ""
+	swbtn.Parent = swbg
+
+	-- row 2: status
+	local r2 = makerow(rc, 50, 44)
+	makelbl(r2, "Status", 14, 160)
+	local statuslbl = makelbl(r2, "Running", 0, 160, Enum.TextXAlignment.Right)
+	statuslbl.Position = UDim2.new(1, -14, 0, 0)
+	statuslbl.TextColor3 = Color3.fromRGB(90, 210, 90)
+
+	-- row 3: runtime
+	local r3 = makerow(rc, 100, 44)
+	makelbl(r3, "Runtime", 14, 160)
+	local rtlbl = makelbl(r3, "00:00:00", 0, 160, Enum.TextXAlignment.Right)
+	rtlbl.Position = UDim2.new(1, -14, 0, 0)
+	rtlbl.TextColor3 = Color3.fromRGB(150,150,150)
+	runtimeLbl = rtlbl
+
+	-- row 4: servers checked
+	local r4 = makerow(rc, 150, 44)
+	makelbl(r4, "Servers Checked", 14, 200)
+	local svlbl = makelbl(r4, "0", 0, 100, Enum.TextXAlignment.Right)
+	svlbl.Position = UDim2.new(1, -14, 0, 0)
+	svlbl.TextColor3 = Color3.fromRGB(150,150,150)
+	serversLbl = svlbl
+
+	-- drag
+	setupdrag(header, frame)
+	setupdrag(mini, mini)
+
+	-- minimize/maximize
+	minbtn.MouseButton1Click:Connect(function()
+		frame.Visible = false
+		mini.Visible = true
+		mini.Position = UDim2.new(frame.Position.X.Scale, frame.Position.X.Offset + 143, frame.Position.Y.Scale, frame.Position.Y.Offset + 113)
+	end)
+	mini.MouseButton1Click:Connect(function()
+		frame.Visible = true
+		mini.Visible = false
+	end)
+
+	-- switch logic
+	local function refreshswitch()
+		if enabled then
+			swbg.BackgroundColor3 = Color3.fromRGB(210, 45, 45)
+			knob.Position = UDim2.new(1, -23, 0.5, -10)
+			statuslbl.Text = "Running"
+			statuslbl.TextColor3 = Color3.fromRGB(90, 210, 90)
+		else
+			swbg.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+			knob.Position = UDim2.new(0, 3, 0.5, -10)
+			statuslbl.Text = "Stopped"
+			statuslbl.TextColor3 = Color3.fromRGB(220, 80, 80)
+		end
+	end
+
+	refreshswitch()
+
+	swbtn.MouseButton1Click:Connect(function()
+		enabled = not enabled
+		refreshswitch()
+		if enabled and not running then
+			running = true
+			task.spawn(loop)
+		end
+	end)
+
+	-- ticker
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if runtimeLbl then runtimeLbl.Text = ftime(tick() - startTime) end
+			if serversLbl then serversLbl.Text = tostring(serversChecked) end
+		end
+	end)
+end
+
+local function claimhive()
+	local hive = workspace:FindFirstChild("Hive", true)
+	if not hive then return end
+	local pos = (hive:IsA("Model") and hive.PrimaryPart and hive.PrimaryPart.Position)
+		or (hive:IsA("BasePart") and hive.Position)
+	if pos then
+		moveto(pos + Vector3.new(0, 3, 0), tweenspd)
+		task.wait(0.3)
+	end
+end
+
+local function killbee(bee)
+	local part = (bee:IsA("Model") and bee.PrimaryPart)
+		or (bee:IsA("BasePart") and bee)
+		or bee:FindFirstChildOfClass("BasePart")
+	if not part then return end
+
+	local t = tick()
+	repeat
+		if not bee or not bee.Parent then return end
+		if (part.Position - hrp.Position).Magnitude > 5 then
+			moveto(part.Position + Vector3.new(0,2,0), 0.2)
+		end
+		task.wait(0.1)
+	until (part.Position - hrp.Position).Magnitude <= 5 or tick()-t >= 10
+
+	local h = bee:FindFirstChildOfClass("Humanoid")
+	if h then h.Health = 0 else bee:Destroy() end
+	task.wait(hopdelay)
+end
+
+local function sendhook(name)
+	local body = HttpService:JSONEncode({
+		embeds = {{
+			title = "vicious bee killed",
+			description = "killed **" .. name .. "**",
+			color = 16711680,
+			fields = {
+				{ name = "player", value = lp.Name, inline = true },
+				{ name = "server", value = tostring(game.JobId), inline = true }
+			},
+			footer = { text = os.date("%X") }
+		}}
+	})
+	pcall(request, {
+		Url = webhook,
+		Method = "POST",
+		Headers = { ["Content-Type"] = "application/json" },
+		Body = body
+	})
+end
+
+local function refreshqueue()
+	task.wait(2)
+	local fn = syn and syn.request or request or (http and http.request)
+	if not fn then return end
+
+	local url = "https://games.roblox.com/v1/games/" .. placeid .. "/servers/Public?sortOrder=Asc&limit=25"
+	local ok, res = pcall(fn, { Url = url, Method = "GET" })
+	if not ok or not res then return end
+
+	if res.StatusCode == 429 then
+		task.wait(15)
+		ok, res = pcall(fn, { Url = url, Method = "GET" })
+		if not ok or not res or res.StatusCode == 429 then
+			task.wait(30)
+			ok, res = pcall(fn, { Url = url, Method = "GET" })
+			if not ok or not res or res.StatusCode == 429 then return end
+		end
+	end
+
+	if not res.Body or res.Body == "" then return end
+	local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
+	if not ok2 or not data or not data.data then return end
+
+	serverQueue = {}
+	for _, s in ipairs(data.data) do
+		if s.id and s.id ~= game.JobId and s.playing > 0 and s.playing < s.maxPlayers then
+			table.insert(serverQueue, s.id)
+		end
+	end
+	serversChecked = 0
+end
+
+local function hopserver()
+	if #serverQueue == 0 or serversChecked >= 24 then
+		refreshqueue()
+	end
+	if #serverQueue == 0 then return end
+	local pick = table.remove(serverQueue, 1)
+	serversChecked += 1
+	pcall(function()
+		TeleportService:TeleportToPlaceInstance(placeid, pick, lp)
+	end)
+end
+
+local function scan()
+	local folder = workspace:FindFirstChild("Monsters") or workspace:WaitForChild("Monsters", 5)
+	if not folder then return nil end
+	for _, v in ipairs(folder:GetChildren()) do
+		if string.find(v.Name, "Vicious") then return v end
+	end
+	for _, v in ipairs(folder:GetDescendants()) do
+		if string.find(v.Name, "Vicious") then return v end
+	end
+	return nil
+end
+
+loop = function()
+	local attempts = 0
+	while enabled do
+		task.wait(scanrate)
+		if not enabled then break end
+		char = lp.Character
+		if not char then continue end
+		hrp = char:FindFirstChild("HumanoidRootPart")
+		hum = char:FindFirstChild("Humanoid")
+		if not hrp or not hum or hum.Health <= 0 then continue end
+
+		local bee = scan()
+		if bee then
+			attempts = 0
+			claimhive()
+			killbee(bee)
+			sendhook(bee.Name)
+			task.wait(1)
+			hopserver()
+		else
+			attempts += 1
+			if attempts >= maxscans then
+				hopserver()
+				attempts = 0
+			end
+		end
+	end
+	running = false
+end
+
+buildgui()
+running = true
+task.spawn(loop)
