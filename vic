@@ -317,30 +317,55 @@ local function killbee(bee)
 		or bee:FindFirstChildOfClass("BasePart")
 	if not part then return end
 
-	-- initial teleport twice to get close
+	-- teleport twice initially to get above the bee
 	for i = 1, 2 do
 		if not bee or not bee.Parent then return end
-		moveto(part.Position + Vector3.new(0, 2, 0), 0.15)
+		moveto(part.Position + Vector3.new(0, 20, 0), 0.15)
 		task.wait(0.2)
 	end
 
-	-- now just follow smoothly above the bee without bouncing
 	local killstart = tick()
-	local maxwait = 30
+	local maxwait = 60
 
 	repeat
-		if not bee or not bee.Parent then break end
+		-- if player died, respawn and get back on the bee
+		char = lp.Character
+		if not char then
+			lp.CharacterAdded:Wait()
+			char = lp.Character
+			task.wait(1)
+			hrp = char and char:FindFirstChild("HumanoidRootPart")
+		end
 
-		local targetPos = part.Position + Vector3.new(0, 3, 0)
-		local dist = (targetPos - hrp.Position).Magnitude
+		hrp = char and char:FindFirstChild("HumanoidRootPart")
+		hum = char and char:FindFirstChild("Humanoid")
 
-		-- only move if drifted more than 8 studs away
-		if dist > 8 then
-			hrp.CFrame = CFrame.new(targetPos)
+		if not bee or not bee.Parent then
+			-- bee is gone = confirmed dead
+			break
+		end
+
+		if hrp then
+			local targetPos = part.Position + Vector3.new(0, 20, 0)
+			local dist = (targetPos - hrp.Position).Magnitude
+			if dist > 10 then
+				hrp.CFrame = CFrame.new(targetPos)
+			end
+		end
+
+		-- make sure humanoid doesnt die by keeping health up
+		if hum and hum.Health < hum.MaxHealth then
+			hum.Health = hum.MaxHealth
 		end
 
 		task.wait(0.2)
 	until not bee or not bee.Parent or tick() - killstart >= maxwait
+
+	-- only hop if bee is actually dead
+	if bee and bee.Parent then
+		-- bee survived, just move on
+		warn("bee survived after " .. maxwait .. "s, hopping anyway")
+	end
 
 	task.wait(hopdelay)
 end
@@ -367,7 +392,6 @@ local function sendhook(name)
 end
 
 local function refreshqueue()
-	task.wait(2)
 	local fn = syn and syn.request or request or (http and http.request)
 	if not fn then return end
 
@@ -376,10 +400,10 @@ local function refreshqueue()
 	if not ok or not res then return end
 
 	if res.StatusCode == 429 then
-		task.wait(15)
+		task.wait(10)
 		ok, res = pcall(fn, { Url = url, Method = "GET" })
 		if not ok or not res or res.StatusCode == 429 then
-			task.wait(30)
+			task.wait(20)
 			ok, res = pcall(fn, { Url = url, Method = "GET" })
 			if not ok or not res or res.StatusCode == 429 then return end
 		end
@@ -439,7 +463,6 @@ loop = function()
 			claimhive()
 			killbee(bee)
 			sendhook(bee.Name)
-			task.wait(1)
 			hopserver()
 		else
 			attempts += 1
