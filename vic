@@ -317,20 +317,29 @@ local function killbee(bee)
 		or bee:FindFirstChildOfClass("BasePart")
 	if not part then return end
 
-	-- stay on top of the bee so our bees can attack it
+	-- initial teleport twice to get close
+	for i = 1, 2 do
+		if not bee or not bee.Parent then return end
+		moveto(part.Position + Vector3.new(0, 2, 0), 0.15)
+		task.wait(0.2)
+	end
+
+	-- now just follow smoothly above the bee without bouncing
 	local killstart = tick()
-	local maxwait = 30 -- wait up to 30 seconds for it to die
+	local maxwait = 30
 
 	repeat
-		if not bee or not bee.Parent then
-			-- bee is gone, it was killed
-			break
+		if not bee or not bee.Parent then break end
+
+		local targetPos = part.Position + Vector3.new(0, 3, 0)
+		local dist = (targetPos - hrp.Position).Magnitude
+
+		-- only move if drifted more than 8 studs away
+		if dist > 8 then
+			hrp.CFrame = CFrame.new(targetPos)
 		end
-		-- keep teleporting to bee so our bees stay in range
-		if (part.Position - hrp.Position).Magnitude > 5 then
-			moveto(part.Position + Vector3.new(0, 2, 0), 0.15)
-		end
-		task.wait(0.1)
+
+		task.wait(0.2)
 	until not bee or not bee.Parent or tick() - killstart >= maxwait
 
 	task.wait(hopdelay)
@@ -446,4 +455,3 @@ end
 buildgui()
 running = true
 task.spawn(loop)
-
