@@ -318,17 +318,24 @@ local function claimhive()
 	for _, plat in ipairs(hivePlatforms:GetChildren()) do
 		if plat:IsA("Model") then
 			local playerRef = plat:FindFirstChild("PlayerRef")
-			-- unclaimed if PlayerRef value is nil
 			if playerRef and playerRef.Value == nil then
-				if not plat.PrimaryPart then continue end
-				local pos = plat.PrimaryPart.Position
+				-- find any basepart to teleport to since PrimaryPart may be nil
+				local pos = nil
+				if plat.PrimaryPart then
+					pos = plat.PrimaryPart.Position
+				else
+					local p = plat:FindFirstChildOfClass("BasePart")
+					if p then pos = p.Position end
+				end
+				if not pos then continue end
+
 				char = lp.Character
 				hrp = char and char:FindFirstChild("HumanoidRootPart")
 				if hrp then
 					hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
 				end
 				task.wait(1.5)
-				return -- claimed, stop looking
+				return
 			end
 		end
 	end
@@ -387,7 +394,7 @@ local function killbee(bee)
 			hum.Health = hum.MaxHealth
 		end
 
-		task.wait(0.1)
+		task.wait(0.05)
 	until not bee or not bee.Parent or tick() - killstart >= maxwait
 
 	platform:Destroy()
