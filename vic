@@ -230,33 +230,61 @@ local function buildgui()
 
 	-- row 2: status
 	local r2 = makerow(rc, 50, 44)
-	makelbl(r2, "Status", 14, 160)
-	local statuslbl = makelbl(r2, "Running", 0, 160, Enum.TextXAlignment.Right)
-	statuslbl.Position = UDim2.new(1, -14, 0, 0)
+	makelbl(r2, "Status", 14, 120)
+	local statuslbl = Instance.new("TextLabel")
+	statuslbl.Size = UDim2.new(0.5, -14, 1, 0)
+	statuslbl.Position = UDim2.new(0.5, 0, 0, 0)
+	statuslbl.BackgroundTransparency = 1
+	statuslbl.Text = "Running"
 	statuslbl.TextColor3 = Color3.fromRGB(90, 210, 90)
+	statuslbl.TextSize = 14
+	statuslbl.Font = Enum.Font.GothamSemibold
+	statuslbl.TextXAlignment = Enum.TextXAlignment.Right
+	statuslbl.Parent = r2
 
 	-- row 3: runtime
 	local r3 = makerow(rc, 100, 44)
-	makelbl(r3, "Runtime", 14, 160)
-	local rtlbl = makelbl(r3, "00:00:00", 0, 160, Enum.TextXAlignment.Right)
-	rtlbl.Position = UDim2.new(1, -14, 0, 0)
-	rtlbl.TextColor3 = Color3.fromRGB(150,150,150)
+	makelbl(r3, "Runtime", 14, 120)
+	local rtlbl = Instance.new("TextLabel")
+	rtlbl.Size = UDim2.new(0.5, -14, 1, 0)
+	rtlbl.Position = UDim2.new(0.5, 0, 0, 0)
+	rtlbl.BackgroundTransparency = 1
+	rtlbl.Text = "00:00:00"
+	rtlbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+	rtlbl.TextSize = 14
+	rtlbl.Font = Enum.Font.GothamSemibold
+	rtlbl.TextXAlignment = Enum.TextXAlignment.Right
+	rtlbl.Parent = r3
 	runtimeLbl = rtlbl
 
 	-- row 4: servers hopped
 	local r4 = makerow(rc, 150, 44)
-	makelbl(r4, "Servers Hopped", 14, 200)
-	local svlbl = makelbl(r4, "0", 0, 100, Enum.TextXAlignment.Right)
-	svlbl.Position = UDim2.new(1, -14, 0, 0)
-	svlbl.TextColor3 = Color3.fromRGB(150,150,150)
+	makelbl(r4, "Servers Hopped", 14, 160)
+	local svlbl = Instance.new("TextLabel")
+	svlbl.Size = UDim2.new(0.35, -14, 1, 0)
+	svlbl.Position = UDim2.new(0.65, 0, 0, 0)
+	svlbl.BackgroundTransparency = 1
+	svlbl.Text = "0"
+	svlbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+	svlbl.TextSize = 14
+	svlbl.Font = Enum.Font.GothamSemibold
+	svlbl.TextXAlignment = Enum.TextXAlignment.Right
+	svlbl.Parent = r4
 	serversLbl = svlbl
 
 	-- row 5: bees killed
 	local r5 = makerow(rc, 200, 44)
-	makelbl(r5, "Bees Killed", 14, 200)
-	local klbl = makelbl(r5, "0", 0, 100, Enum.TextXAlignment.Right)
-	klbl.Position = UDim2.new(1, -14, 0, 0)
-	klbl.TextColor3 = Color3.fromRGB(150,150,150)
+	makelbl(r5, "Bees Killed", 14, 160)
+	local klbl = Instance.new("TextLabel")
+	klbl.Size = UDim2.new(0.35, -14, 1, 0)
+	klbl.Position = UDim2.new(0.65, 0, 0, 0)
+	klbl.BackgroundTransparency = 1
+	klbl.Text = "0"
+	klbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+	klbl.TextSize = 14
+	klbl.Font = Enum.Font.GothamSemibold
+	klbl.TextXAlignment = Enum.TextXAlignment.Right
+	klbl.Parent = r5
 	killsLbl = klbl
 
 	-- drag
