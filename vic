@@ -18,9 +18,12 @@ local enabled = true
 local running = false
 local startTime = tick()
 local serversChecked = 0
+local totalHops = 0
+local totalKills = 0
 local serverQueue = {}
 local runtimeLbl = nil
 local serversLbl = nil
+local killsLbl = nil
 local loop
 
 local function ftime(s)
@@ -126,7 +129,7 @@ local function buildgui()
 
 	-- main frame
 	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(0, 340, 0, 280)
+	frame.Size = UDim2.new(0, 340, 0, 330)
 	frame.Position = UDim2.new(0.5, -170, 0.5, -140)
 	frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 	frame.BorderSizePixel = 0
@@ -193,9 +196,8 @@ local function buildgui()
 	minbtn.Parent = header
 	makecorner(minbtn, 8)
 
-	-- rows
 	local rc = Instance.new("Frame")
-	rc.Size = UDim2.new(1, -20, 0, 205)
+	rc.Size = UDim2.new(1, -20, 0, 255)
 	rc.Position = UDim2.new(0, 10, 0, 67)
 	rc.BackgroundTransparency = 1
 	rc.Parent = frame
@@ -241,13 +243,21 @@ local function buildgui()
 	rtlbl.TextColor3 = Color3.fromRGB(150,150,150)
 	runtimeLbl = rtlbl
 
-	-- row 4: servers checked
+	-- row 4: servers hopped
 	local r4 = makerow(rc, 150, 44)
-	makelbl(r4, "Servers Checked", 14, 200)
+	makelbl(r4, "Servers Hopped", 14, 200)
 	local svlbl = makelbl(r4, "0", 0, 100, Enum.TextXAlignment.Right)
 	svlbl.Position = UDim2.new(1, -14, 0, 0)
 	svlbl.TextColor3 = Color3.fromRGB(150,150,150)
 	serversLbl = svlbl
+
+	-- row 5: bees killed
+	local r5 = makerow(rc, 200, 44)
+	makelbl(r5, "Bees Killed", 14, 200)
+	local klbl = makelbl(r5, "0", 0, 100, Enum.TextXAlignment.Right)
+	klbl.Position = UDim2.new(1, -14, 0, 0)
+	klbl.TextColor3 = Color3.fromRGB(150,150,150)
+	killsLbl = klbl
 
 	-- drag
 	setupdrag(header, frame)
@@ -295,19 +305,32 @@ local function buildgui()
 		while true do
 			task.wait(1)
 			if runtimeLbl then runtimeLbl.Text = ftime(tick() - startTime) end
-			if serversLbl then serversLbl.Text = tostring(serversChecked) end
+			if serversLbl then serversLbl.Text = tostring(totalHops) end
+			if killsLbl then killsLbl.Text = tostring(totalKills) end
 		end
 	end)
 end
 
 local function claimhive()
-	local hive = workspace:FindFirstChild("HivePlatforms", true)
-	if not hive then return end
-	local pos = (hive:IsA("Model") and hive.PrimaryPart and hive.PrimaryPart.Position)
-		or (hive:IsA("BasePart") and hive.Position)
-	if pos then
-		moveto(pos + Vector3.new(0, 3, 0), tweenspd)
-		task.wait(0.3)
+	local hivePlatforms = workspace:FindFirstChild("HivePlatforms")
+	if not hivePlatforms then return end
+
+	for _, plat in ipairs(hivePlatforms:GetChildren()) do
+		if plat:IsA("Model") then
+			local playerRef = plat:FindFirstChild("PlayerRef")
+			-- unclaimed if PlayerRef value is nil
+			if playerRef and playerRef.Value == nil then
+				if not plat.PrimaryPart then continue end
+				local pos = plat.PrimaryPart.Position
+				char = lp.Character
+				hrp = char and char:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+				end
+				task.wait(1.5)
+				return -- claimed, stop looking
+			end
+		end
 	end
 end
 
@@ -319,7 +342,7 @@ local function killbee(bee)
 
 	-- create invisible platform 10 studs above bee
 	local platform = Instance.new("Part")
-	platform.Size = Vector3.new(30, 1, 30)
+	platform.Size = Vector3.new(60, 1, 60)
 	platform.Anchored = true
 	platform.CanCollide = true
 	platform.Transparency = 1
@@ -355,7 +378,7 @@ local function killbee(bee)
 		hum = char and char:FindFirstChild("Humanoid")
 
 		-- if fell off platform put them back
-		if hrp and (hrp.Position - platform.Position).Magnitude > 18 then
+		if hrp and (hrp.Position - platform.Position).Magnitude > 35 then
 			hrp.CFrame = CFrame.new(platform.Position + Vector3.new(0, 2, 0))
 		end
 
@@ -430,6 +453,7 @@ local function hopserver()
 	if #serverQueue == 0 then return end
 	local pick = table.remove(serverQueue, 1)
 	serversChecked += 1
+	totalHops += 1
 	pcall(function()
 		TeleportService:TeleportToPlaceInstance(placeid, pick, lp)
 	end)
@@ -463,6 +487,7 @@ loop = function()
 			attempts = 0
 			claimhive()
 			killbee(bee)
+			totalKills += 1
 			sendhook(bee.Name)
 			hopserver()
 		else
